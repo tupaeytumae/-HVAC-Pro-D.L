@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HVAC Pro">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>HVAC Pro</title>
+<style>
+:root{
+  --bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;--line:#d1d5db;
+  --blue:#0f62fe;--ok:#047857;--warn:#b45309;--bad:#b91c1c;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:720px;margin:auto;padding:calc(14px + env(safe-area-inset-top)) 12px calc(28px + env(safe-area-inset-bottom))}
+header{padding:4px 2px 10px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{font-size:13px;color:var(--muted)}
+.card{background:var(--card);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 3px 16px rgba(0,0,0,.06)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{font-size:13px;font-weight:650;color:#374151}
+input,select,button{font:inherit}
+input,select{width:100%;margin-top:6px;padding:13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text);font-size:16px}
+button{border:0;border-radius:14px;padding:14px 16px;font-weight:750}
+.primary{width:100%;background:var(--blue);color:#fff;font-size:17px}
+.secondary{background:#eef2f7;color:#1f2937}
+.row{display:flex;gap:10px;justify-content:space-between;align-items:center}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{border:1px solid #e5e7eb;border-radius:14px;padding:12px}
+.metric small{display:block;color:var(--muted)}
+.metric strong{display:block;font-size:22px;margin-top:4px}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:750}
+.ok{background:#ecfdf5;color:var(--ok)} .warn{background:#fff7ed;color:var(--warn)} .bad{background:#fef2f2;color:var(--bad)}
+#result{display:none}
+ul{padding-left:20px}li{margin:7px 0}
+.note{font-size:12px;line-height:1.45;color:var(--muted)}
+@media(max-width:420px){.grid,.metrics{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>HVAC Pro</h1>
+  <div class="sub">Diagnóstico rápido · iPhone · funcionamiento sin conexión</div>
+</header>
+
+<section class="card">
+  <div class="grid">
+    <label>Refrigerante
+      <select id="ref">
+        <option>R407C</option>
+        <option>R410A</option>
+        <option>R32</option>
+        <option>R134a</option>
+        <option>R290</option>
+        <option>R22</option>
+      </select>
+    </label>
+    <label>Modo
+      <select id="mode"><option value="cool">Frío</option><option value="heat">Calor</option></select>
+    </label>
+    <label>Baja
+      <input id="lp" type="number" step="0.01" inputmode="decimal" placeholder="bar(g)">
+    </label>
+    <label>Alta
+      <input id="hp" type="number" step="0.01" inputmode="decimal" placeholder="bar(g)">
+    </label>
+    <label>Tª aspiración
+      <input id="ts" type="number" step="0.1" inputmode="decimal" placeholder="°C">
+    </label>
+    <label>Tª líquido
+      <input id="tl" type="number" step="0.1" inputmode="decimal" placeholder="°C">
+    </label>
+    <label>Retorno
+      <input id="tr" type="number" step="0.1" inputmode="decimal" placeholder="°C">
+    </label>
+    <label>Impulsión
+      <input id="ti" type="number" step="0.1" inputmode="decimal" placeholder="°C">
+    </label>
+    <label>Exterior
+      <input id="to" type="number" step="0.1" inputmode="decimal" placeholder="°C">
+    </label>
+    <label>Caudal de aire
+      <select id="air"><option value="normal">Normal</option><option value="low">Bajo</option><option value="unknown">No comprobado</option></select>
+    </label>
+  </div>
+
+  <button class="primary" id="diagnose" type="button" style="margin-top:16px">DIAGNOSTICAR</button>
+  <button class="secondary" id="demo" type="button" style="width:100%;margin-top:10px">CARGAR EJEMPLO</button>
+</section>
+
+<section id="result" class="card">
+  <div class="row">
+    <h2 style="font-size:18px;margin:0">Resultado</h2>
+    <span id="status" class="badge"></span>
+  </div>
+  <div class="metrics" style="margin-top:12px">
+    <div class="metric"><small>Evaporación dew</small><strong id="tev">—</strong></div>
+    <div class="metric"><small>Condensación bubble</small><strong id="tc">—</strong></div>
+    <div class="metric"><small>Recalentamiento</small><strong id="sh">—</strong></div>
+    <div class="metric"><small>Subenfriamiento</small><strong id="sc">—</strong></div>
+    <div class="metric"><small>Salto térmico</small><strong id="dt">—</strong></div>
+    <div class="metric"><small>Relación compresión</small><strong id="cr">—</strong></div>
+  </div>
+  <h3 id="diag"></h3>
+  <div id="why" class="note" style="font-size:14px"></div>
+  <h3>Comprobar ahora</h3>
+  <ul id="steps"></ul>
+  <button class="secondary" id="copy" type="button" style="width:100%">COPIAR RESUMEN</button>
+</section>
+
+<section class="card note">
+La base P‑T incluida es una aproximación local para diagnóstico orientativo. Contrasta con Danfoss Ref Tools o REFPROP antes de efectuar una carga o retirada de refrigerante.
+</section>
+</div>
+
+<script>
+const PT = {
+R407C:{dew:[[-30,1.7],[-20,2.9],[-10,4.5],[0,6.7],[10,9.6],[20,13.3],[30,17.8],[40,23.3],[50,29.9],[60,37.7]],bubble:[[-30,1.2],[-20,2.1],[-10,3.4],[0,5.2],[10,7.6],[20,10.7],[30,14.6],[40,19.4],[50,25.2],[60,32.1]]},
+R410A:{dew:[[-30,3.1],[-20,4.8],[-10,7.2],[0,10.2],[10,14.0],[20,18.7],[30,24.5],[40,31.5],[50,39.9],[60,49.8]],bubble:[[-30,3.0],[-20,4.7],[-10,7.1],[0,10.1],[10,13.9],[20,18.6],[30,24.4],[40,31.4],[50,39.8],[60,49.7]]},
+R32:{dew:[[-30,3.0],[-20,4.8],[-10,7.2],[0,10.3],[10,14.3],[20,19.3],[30,25.5],[40,33.0],[50,42.1],[60,53.0]]},
+R134a:{dew:[[-30,0.0],[-20,0.3],[-10,1.0],[0,1.9],[10,3.1],[20,4.7],[30,6.7],[40,9.1],[50,12.1],[60,15.8]]},
+R290:{dew:[[-30,0.7],[-20,1.4],[-10,2.4],[0,3.7],[10,5.4],[20,7.6],[30,10.4],[40,13.8],[50,18.0],[60,23.0]]},
+R22:{dew:[[-30,0.6],[-20,1.5],[-10,2.6],[0,4.0],[10,5.8],[20,8.1],[30,10.9],[40,14.4],[50,18.7],[60,23.9]]}
+};
+for(const r in PT) if(!PT[r].bubble) PT[r].bubble=PT[r].dew;
+
+const $=id=>document.getElementById(id);
+function num(id){const v=parseFloat($(id).value.replace(",", "."));return Number.isFinite(v)?v:null}
+function tAt(points,p){
+  for(let i=0;i<points.length-1;i++){
+    const [t1,p1]=points[i],[t2,p2]=points[i+1];
+    if(p>=p1&&p<=p2)return t1+(p-p1)*(t2-t1)/(p2-p1);
+  }
+  return null;
+}
+function out(id,v,u="",d=1){$(id).textContent=Number.isFinite(v)?v.toFixed(d)+" "+u:"—"}
+function run(){
+  const ref=$("ref").value,mode=$("mode").value;
+  const lp=num("lp"),hp=num("hp"),ts=num("ts"),tl=num("tl"),tr=num("tr"),ti=num("ti"),to=num("to");
+  if([lp,hp,ts,tl,tr,ti,to].some(v=>v===null)){alert("Completa todos los campos.");return}
+  const tev=tAt(PT[ref].dew,lp),tc=tAt(PT[ref].bubble,hp);
+  if(tev===null||tc===null){alert("Presión fuera del rango disponible.");return}
+  const sh=ts-tev,sc=tc-tl,dt=mode==="cool"?tr-ti:ti-tr,cr=(hp+1.013)/(lp+1.013);
+  let diag,why,steps,score;
+  if(sh>12&&sc<3){diag="Probable carga insuficiente o fuga";why="Recalentamiento alto y subenfriamiento bajo: el evaporador parece recibir poco refrigerante.";steps=["Buscar trazas de aceite","Comprobar estanqueidad","Confirmar carga por peso","Repetir medidas tras estabilizar"];score=92}
+  else if(sh>12&&sc>=5){diag="Posible restricción o expansión insuficiente";why="Recalentamiento alto con subenfriamiento conservado o elevado.";steps=["Medir caída térmica en filtro deshidratador","Comprobar TXV/EXV","Revisar estrangulamientos","Comprobar humedad o hielo"];score=86}
+  else if(sh<3&&sc>8){diag="Posible sobrealimentación o sobrecarga";why="Recalentamiento bajo y subenfriamiento alto: existe riesgo de exceso de líquido.";steps=["Confirmar caudal de aire","Comprobar carga por peso","Revisar expansión","Vigilar retorno de líquido"];score=82}
+  else if(dt<7){diag="Rendimiento frigorífico insuficiente";why="El salto térmico del aire es bajo.";steps=["Revisar filtros y turbina","Comprobar limpieza de baterías","Medir intensidad","Repetir mediciones"];score=72}
+  else{diag="Patrón razonablemente equilibrado";why="No aparece un patrón fuerte de falta de carga, restricción o sobrealimentación.";steps=["Comparar intensidad con placa","Comprobar limpieza de baterías","Registrar temperatura de descarga","Confirmar estabilidad durante 10–15 minutos"];score=78}
+  out("tev",tev,"°C");out("tc",tc,"°C");out("sh",sh,"K");out("sc",sc,"K");out("dt",dt,"K");out("cr",cr,"",2);
+  $("diag").textContent=diag;$("why").textContent=why;$("steps").innerHTML=steps.map(x=>"<li>"+x+"</li>").join("");
+  $("status").textContent=score+" %";$("status").className="badge "+(score>=88?"bad":score>=80?"warn":"ok");
+  $("result").style.display="block";
+  window.summary=`HVAC ${ref} · ${mode==="cool"?"Frío":"Calor"}
+Baja ${lp} bar(g) · Alta ${hp} bar(g)
+Evap. ${tev.toFixed(1)} °C · Cond. ${tc.toFixed(1)} °C
+SH ${sh.toFixed(1)} K · SC ${sc.toFixed(1)} K · ΔT ${dt.toFixed(1)} K
+Diagnóstico: ${diag} (${score}%)`;
+  $("result").scrollIntoView({behavior:"smooth"});
+}
+$("diagnose").addEventListener("click",run);
+$("demo").addEventListener("click",()=>{ $("ref").value="R407C";$("lp").value="4.8";$("hp").value="17.9";$("ts").value="14";$("tl").value="37";$("tr").value="26";$("ti").value="15";$("to").value="34";});
+$("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(window.summary||"");alert("Resumen copiado.");}catch(e){alert(window.summary||"")}})
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"))}
+</script>
+</body>
+</html>
